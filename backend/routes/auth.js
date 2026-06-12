@@ -17,12 +17,20 @@ const User = require("../models/User");
 // ----------------------------------------------------------------
 router.post("/register", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
+    if (!username || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Username and password are required.",
+        message: "Username, email, and password are required.",
+      });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address.",
       });
     }
 
@@ -34,13 +42,23 @@ router.post("/register", async (req, res) => {
     }
 
     const normalizedUsername = username.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
 
-    // Check if user already exists
-    const existing = await User.findOne({ username: normalizedUsername });
-    if (existing) {
+    // Check if username already exists
+    const existingUser = await User.findOne({ username: normalizedUsername });
+    if (existingUser) {
       return res.status(400).json({
         success: false,
         message: "Username is already taken.",
+      });
+    }
+
+    // Check if email already exists
+    const existingEmail = await User.findOne({ email: normalizedEmail });
+    if (existingEmail) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already registered.",
       });
     }
 
@@ -54,6 +72,7 @@ router.post("/register", async (req, res) => {
 
     const newUser = await User.create({
       username: normalizedUsername,
+      email: normalizedEmail,
       password: hashedPassword,
       role: "user",
       currentSessionId: sessionId,
@@ -74,7 +93,7 @@ router.post("/register", async (req, res) => {
       maxAge: 12 * 60 * 60 * 1000, // 12 hours
     });
 
-    console.log(`👤  New user registered: ${newUser.username}`);
+    console.log(`👤  New user registered: ${newUser.username} (${newUser.email})`);
 
     return res.status(201).json({
       success: true,
@@ -85,6 +104,114 @@ router.post("/register", async (req, res) => {
   } catch (error) {
     console.error("❌  Registration error:", error.message);
     return res.status(500).json({ success: false, message: "Server error during registration." });
+  }
+});
+
+// ----------------------------------------------------------------
+// POST /api/auth/forgot-password
+// Body: { email }
+// Returns: { success, message }
+// ----------------------------------------------------------------
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required." });
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user) {
+      return res.status(400).json({ success: false, message: "No user found with this email address." });
+    }
+
+    // Generate 6-digit OTP
+    const crypto = require("crypto");
+    const otp = crypto.randomInt(100000, 999999).toString();
+
+    // Save OTP & Expiry (10 minutes)
+    user.resetPasswordOtp = otp;
+    user.resetPasswordOtpExpires = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    // Send email
+    const { sendEmail } = require("../config/email");
+    const mailText = `You requested a password reset. Your OTP code is: ${otp}\n\nThis OTP is valid for 10 minutes. If you did not request this, please ignore this email.`;
+    const mailHtml = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px;">
+        <h2 style="color: #2563eb; margin-bottom: 20px;">Password Reset Request</h2>
+        <p>You requested to reset your password for Abhi Sanitary and Hardware. Use the following One-Time Password (OTP) to complete the process:</p>
+        <div style="font-size: 28px; font-weight: bold; padding: 15px; background-color: #f3f4f6; border-radius: 8px; text-align: center; letter-spacing: 5px; margin: 25px 0; color: #2563eb; border: 1px dashed #3b82f6;">
+          ${otp}
+        </div>
+        <p>This OTP is valid for <strong>10 minutes</strong>. After that, it will expire and you will need to request a new one.</p>
+        <p>If you did not request a password reset, you can safely ignore this email.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 25px 0;" />
+        <p style="font-size: 12px; color: #6b7280; text-align: center;">Abhi Sanitary and Hardware • Automated Email</p>
+      </div>
+    `;
+
+    await sendEmail({
+      to: user.email,
+      subject: "Password Reset OTP - Abhi Sanitary & Hardware",
+      text: mailText,
+      html: mailHtml,
+    });
+
+    return res.status(200).json({ success: true, message: "OTP sent to your email." });
+  } catch (error) {
+    console.error("❌ Forgot password error:", error.message);
+    return res.status(500).json({ success: false, message: "Server error while processing password reset request." });
+  }
+});
+
+// ----------------------------------------------------------------
+// POST /api/auth/reset-password
+// Body: { email, otp, newPassword }
+// Returns: { success, message }
+// ----------------------------------------------------------------
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ success: false, message: "All fields (email, OTP, new password) are required." });
+    }
+
+    if (newPassword.length < 4) {
+      return res.status(400).json({ success: false, message: "Password must be at least 4 characters long." });
+    }
+
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+      resetPasswordOtp: otp,
+      resetPasswordOtpExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP." });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update user: set new password, clear OTP fields, invalidate session
+    const crypto = require("crypto");
+    const sessionId = crypto.randomBytes(16).toString("hex");
+
+    user.password = hashedPassword;
+    user.resetPasswordOtp = null;
+    user.resetPasswordOtpExpires = null;
+    user.currentSessionId = sessionId; // invalidates old logged in sessions
+    await user.save();
+
+    console.log(`🔐 Password successfully reset for user: ${user.username}`);
+
+    return res.status(200).json({ success: true, message: "Password has been reset successfully. You can now log in." });
+  } catch (error) {
+    console.error("❌ Reset password error:", error.message);
+    return res.status(500).json({ success: false, message: "Server error while resetting password." });
   }
 });
 

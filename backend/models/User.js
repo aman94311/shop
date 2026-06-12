@@ -23,6 +23,21 @@ const UserSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user",
     },
+    email: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
+    resetPasswordOtp: {
+      type: String,
+      default: null,
+    },
+    resetPasswordOtpExpires: {
+      type: Date,
+      default: null,
+    },
     currentSessionId: {
       type: String,
       default: null,

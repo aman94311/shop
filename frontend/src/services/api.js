@@ -33,10 +33,24 @@ export const loginAdmin = async (username, password) => {
   });
 };
 
-export const registerUser = async (username, password) => {
+export const registerUser = async (username, email, password) => {
   return apiFetch("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, email, password }),
+  });
+};
+
+export const forgotPassword = async (email) => {
+  return apiFetch("/api/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+};
+
+export const resetPassword = async (email, otp, newPassword) => {
+  return apiFetch("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ email, otp, newPassword }),
   });
 };
 
