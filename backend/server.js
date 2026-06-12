@@ -29,6 +29,7 @@ app.use(cookieParser());
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  "https://abhisanitary.vercel.app", // Fallback for production deployment
   "http://localhost:5173",
   "http://localhost:3000",
   "http://127.0.0.1:5173"
