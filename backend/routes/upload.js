@@ -8,6 +8,8 @@ const express    = require("express");
 const router     = express.Router();
 const multer     = require("multer");
 const cloudinary = require("../config/cloudinary");
+const fs         = require("fs");
+const path       = require("path");
 
 // ── Multer: store file in memory (no disk writes) ──────────
 const storage = multer.memoryStorage();
@@ -58,30 +60,49 @@ router.post("/", upload.single("image"), async (req, res) => {
       return res.status(400).json({ success: false, message: "No image file uploaded." });
     }
 
-    // Check Cloudinary credentials
-    if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY    ||
-      !process.env.CLOUDINARY_API_SECRET
-    ) {
-      return res.status(503).json({
-        success: false,
-        message: "Cloudinary is not configured. Add CLOUDINARY_* keys to backend .env",
+    // Check if Cloudinary is fully configured and not placeholder values
+    const isCloudinaryConfigured =
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_CLOUD_NAME !== "your_cloudinary_cloud_name" &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_KEY !== "your_cloudinary_api_key" &&
+      process.env.CLOUDINARY_API_SECRET &&
+      process.env.CLOUDINARY_API_SECRET !== "your_cloudinary_api_secret";
+
+    if (isCloudinaryConfigured) {
+      const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
+      console.log(`📷  Image uploaded to Cloudinary: ${result.secure_url}`);
+      return res.status(201).json({
+        success:   true,
+        url:       result.secure_url,
+        publicId:  result.public_id,
+        width:     result.width,
+        height:    result.height,
+        bytes:     result.bytes,
+      });
+    } else {
+      // Local Storage Fallback — saves database/Cloudinary storage
+      const uploadsDir = path.join(__dirname, "../uploads");
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const fileExtension = path.extname(req.file.originalname) || ".jpg";
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${fileExtension}`;
+      const filePath = path.join(uploadsDir, filename);
+
+      fs.writeFileSync(filePath, req.file.buffer);
+
+      // Construct server URL dynamically from the request headers
+      const secureUrl = `${req.protocol}://${req.get("host")}/uploads/${filename}`;
+      console.log(`📁  Image saved locally (no Cloudinary config): ${secureUrl}`);
+
+      return res.status(201).json({
+        success: true,
+        url:     secureUrl,
+        filename,
       });
     }
-
-    const result = await uploadToCloudinary(req.file.buffer, req.file.mimetype);
-
-    console.log(`📷  Image uploaded: ${result.secure_url}`);
-
-    return res.status(201).json({
-      success:   true,
-      url:       result.secure_url,
-      publicId:  result.public_id,
-      width:     result.width,
-      height:    result.height,
-      bytes:     result.bytes,
-    });
   } catch (error) {
     console.error("❌  Upload error:", error.message);
     return res.status(500).json({ success: false, message: "Image upload failed: " + error.message });

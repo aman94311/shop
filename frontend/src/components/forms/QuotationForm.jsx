@@ -184,7 +184,6 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
         mobileNumber:  formData.mobileNumber.trim(),
         siteAddress:   formData.siteAddress.trim(),
         materialList:  materialList.trim(),
-        ...(finalImageUrl ? { imageUrl: finalImageUrl } : {}),
       });
     } catch {
       console.warn("Backend log failed — continuing to WhatsApp.");

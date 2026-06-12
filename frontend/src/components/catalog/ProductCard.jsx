@@ -8,12 +8,19 @@ import { useAuth } from "../../context/AuthContext";
 
 const ProductCard = ({ item, onAdd, onEdit }) => {
   const [added, setAdded] = useState(false);
+  const [quantity, setQuantity] = useState(1);
   const { isAuthenticated, userRole } = useAuth();
 
   const handleAdd = () => {
-    onAdd(item);
+    onAdd({
+      ...item,
+      unit: `${item.unit} x ${quantity}`
+    });
     setAdded(true);
-    setTimeout(() => setAdded(false), 1800);
+    setTimeout(() => {
+      setAdded(false);
+      setQuantity(1);
+    }, 1800);
   };
 
   return (
@@ -27,6 +34,29 @@ const ProductCard = ({ item, onAdd, onEdit }) => {
       <div className="product-info">
         <h3 className="product-name">{item.name}</h3>
         <p className="product-description">{item.description}</p>
+      </div>
+
+      {/* Quantity Selector */}
+      <div className="product-qty-selector">
+        <span className="qty-label">Quantity:</span>
+        <div className="qty-controls">
+          <button
+            type="button"
+            className="qty-adjust-btn"
+            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+            disabled={quantity <= 1}
+          >
+            −
+          </button>
+          <span className="qty-number">{quantity}</span>
+          <button
+            type="button"
+            className="qty-adjust-btn"
+            onClick={() => setQuantity((q) => q + 1)}
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {/* Price + Add button */}

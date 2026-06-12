@@ -6,6 +6,7 @@
 require("dotenv").config();
 
 const express = require("express");
+const path = require("path");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const connectDB = require("./config/db");
@@ -81,6 +82,9 @@ app.use("/api/inquiries", inquiryRoutes);
 app.use("/api/upload",    uploadRoutes);
 app.use("/api/settings",  settingsRoutes);
 app.use("/api/feedback",  feedbackRoutes);
+
+// Serve static uploads (local storage fallback)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // 404 handler
 app.use((_req, res) => res.status(404).json({ success: false, message: "Route not found" }));

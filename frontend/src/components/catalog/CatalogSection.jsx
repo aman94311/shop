@@ -5,6 +5,7 @@
 
 import React, { useState } from "react";
 import ProductCard from "./ProductCard";
+import ColorExplorer from "./ColorExplorer";
 
 const SECTION_META = {
   paints: {
@@ -29,6 +30,7 @@ const SECTION_META = {
 
 const CatalogSection = ({ category, items, activeFilter, onAdd, onEdit }) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [paintView, setPaintView]     = useState("products"); // 'products' or 'visualizer'
   const meta = SECTION_META[category];
   const isVisible = activeFilter === "all" || activeFilter === category;
 
@@ -41,6 +43,8 @@ const CatalogSection = ({ category, items, activeFilter, onAdd, onEdit }) => {
     const tagMatch = item.tag?.toLowerCase().includes(q);
     return nameMatch || descMatch || tagMatch;
   });
+
+  const isVisualizerActive = category === "paints" && paintView === "visualizer";
 
   return (
     <section
@@ -59,44 +63,73 @@ const CatalogSection = ({ category, items, activeFilter, onAdd, onEdit }) => {
         </div>
         
         <div className="section-header-right">
-          <div className="section-search-wrap">
-            <span className="section-search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder={`Search ${meta.title.toLowerCase()}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`section-search-input section-search-input--${meta.color}`}
-            />
-            {searchQuery && (
-              <button
-                className="section-search-clear"
-                onClick={() => setSearchQuery("")}
-                title="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          {!isVisualizerActive && (
+            <div className="section-search-wrap">
+              <span className="section-search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder={`Search ${meta.title.toLowerCase()}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`section-search-input section-search-input--${meta.color}`}
+              />
+              {searchQuery && (
+                <button
+                  className="section-search-clear"
+                  onClick={() => setSearchQuery("")}
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
           <span className={`section-count section-count--${meta.color}`}>
-            {filteredItems.length} {filteredItems.length === 1 ? "item" : "items"}
+            {isVisualizerActive 
+              ? "120 shades" 
+              : `${filteredItems.length} ${filteredItems.length === 1 ? "item" : "items"}`
+            }
           </span>
         </div>
       </div>
 
-      {/* Products grid */}
-      <div className="products-grid">
-        {filteredItems.length > 0 ? (
-          filteredItems.map((item) => (
-            <ProductCard key={item._id || item.id} item={item} onAdd={onAdd} onEdit={onEdit} />
-          ))
-        ) : (
-          <div className="section-empty-search">
-            <span>📭</span>
-            <p>No items found matching "{searchQuery}"</p>
-          </div>
-        )}
-      </div>
+      {/* Sub-tabs for paints category */}
+      {category === "paints" && (
+        <div className="paint-view-tabs">
+          <button
+            type="button"
+            className={`paint-tab-btn ${paintView === "products" ? "paint-tab-btn--active" : ""}`}
+            onClick={() => setPaintView("products")}
+          >
+            📦 Browse Paint Products
+          </button>
+          <button
+            type="button"
+            className={`paint-tab-btn ${paintView === "visualizer" ? "paint-tab-btn--active" : ""}`}
+            onClick={() => setPaintView("visualizer")}
+          >
+            🎨 Color Visualizer &amp; Explorer
+          </button>
+        </div>
+      )}
+
+      {/* Products grid or Color Explorer */}
+      {isVisualizerActive ? (
+        <ColorExplorer onAdd={onAdd} />
+      ) : (
+        <div className="products-grid">
+          {filteredItems.length > 0 ? (
+            filteredItems.map((item) => (
+              <ProductCard key={item._id || item.id} item={item} onAdd={onAdd} onEdit={onEdit} />
+            ))
+          ) : (
+            <div className="section-empty-search">
+              <span>📭</span>
+              <p>No items found matching "{searchQuery}"</p>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 };
