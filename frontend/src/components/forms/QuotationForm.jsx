@@ -221,6 +221,15 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
     const targetUrl = isAndroidWebView
       ? `intent://send/?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}#Intent;scheme=whatsapp;package=com.whatsapp;end`
       : `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+
+    // If running inside MIT App Inventor WebView, pass the URL to the App Inventor wrapper
+    if (typeof window.AppInventor !== "undefined") {
+      try {
+        window.AppInventor.setWebViewString(targetUrl);
+      } catch (e) {
+        console.warn("AppInventor.setWebViewString failed:", e);
+      }
+    }
     
     let redirectSuccess = false;
 
