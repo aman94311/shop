@@ -18,6 +18,24 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkSession = async () => {
       try {
+        // Detect App Wrapper
+        const isAppParam = new URLSearchParams(window.location.search).get("app") === "true";
+        const isAndroidWebView = /android/i.test(navigator.userAgent) && /wv/i.test(navigator.userAgent);
+        const isAppWrapper = isAppParam || isAndroidWebView;
+
+        if (isAppWrapper && typeof window.AppInventor === "undefined") {
+          // Wait for AppInventor bridge to initialize (up to 800ms)
+          await new Promise((resolve) => {
+            const start = Date.now();
+            const timer = setInterval(() => {
+              if (typeof window.AppInventor !== "undefined" || Date.now() - start > 800) {
+                clearInterval(timer);
+                resolve();
+              }
+            }, 30);
+          });
+        }
+
         const res = await fetchMe();
         if (res.success && res.isAuthenticated) {
           setIsAuthenticated(true);

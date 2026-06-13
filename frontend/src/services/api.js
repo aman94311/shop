@@ -20,13 +20,21 @@ const getCookie = (name) => {
   return null;
 };
 
+// Helper to validate JWT token format (starts with eyJ and contains 3 dot-separated segments)
+const isValidToken = (t) => {
+  return typeof t === "string" && t.trim().startsWith("eyJ") && t.split(".").length === 3;
+};
+
 // Helper to write cookies on the frontend
 const setCookie = (name, value, days = 365) => {
   try {
     const d = new Date();
     d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
     const expires = "expires=" + d.toUTCString();
-    document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; Secure`;
+    // Only apply Secure/SameSite flags if served over HTTPS to avoid blocks in cleartext/local envs
+    const isHttps = window.location.protocol === "https:";
+    const secureFlag = isHttps ? "; SameSite=Lax; Secure" : "";
+    document.cookie = `${name}=${value}; ${expires}; path=/${secureFlag}`;
   } catch (e) {
     console.warn("Failed to write cookie:", e);
   }
@@ -35,7 +43,9 @@ const setCookie = (name, value, days = 365) => {
 // Helper to erase cookies on the frontend
 const eraseCookie = (name) => {
   try {
-    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+    const isHttps = window.location.protocol === "https:";
+    const secureFlag = isHttps ? "; SameSite=Lax; Secure" : "";
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT${secureFlag}`;
   } catch (e) {
     console.warn("Failed to erase cookie:", e);
   }
@@ -51,13 +61,38 @@ const safeStorage = {
         // Fallback to first-party cookie for WebViews
         val = getCookie("webview_token");
       }
+      // Fallback to App Inventor WebViewString
+      if (!val && key === "token" && typeof window.AppInventor !== "undefined") {
+        try {
+          const appInvToken = window.AppInventor.getWebViewString();
+          if (isValidToken(appInvToken)) {
+            val = appInvToken.trim();
+            // Cache it in localStorage and cookie for faster checks during this session
+            localStorage.setItem("token", val);
+            setCookie("webview_token", val, 365);
+          }
+        } catch (err) {
+          console.warn("Failed to read from AppInventor WebViewString:", err);
+        }
+      }
       if (key === "token" && val) cachedToken = val; // Keep memory cache synced
       return val;
     } catch (e) {
       console.warn("localStorage.getItem blocked:", e);
       // Fallback to cookie if localStorage is blocked
       if (key === "token") {
-        const val = getCookie("webview_token");
+        let val = getCookie("webview_token");
+        if (!val && typeof window.AppInventor !== "undefined") {
+          try {
+            const appInvToken = window.AppInventor.getWebViewString();
+            if (isValidToken(appInvToken)) {
+              val = appInvToken.trim();
+              setCookie("webview_token", val, 365);
+            }
+          } catch (err) {
+            console.warn("Failed to read from AppInventor WebViewString in catch:", err);
+          }
+        }
         if (val) cachedToken = val;
         return val || cachedToken;
       }
@@ -69,6 +104,15 @@ const safeStorage = {
       cachedToken = value;
       // Save in first-party cookie as backup for WebViews
       setCookie("webview_token", value, 365);
+      
+      // Save to App Inventor persistent TinyDB container via WebViewString
+      if (typeof window.AppInventor !== "undefined") {
+        try {
+          window.AppInventor.setWebViewString(value);
+        } catch (err) {
+          console.warn("Failed to set AppInventor WebViewString:", err);
+        }
+      }
     }
     try {
       localStorage.setItem(key, value);
@@ -81,6 +125,15 @@ const safeStorage = {
       cachedToken = null;
       // Erase from first-party cookie
       eraseCookie("webview_token");
+      
+      // Inform App Inventor to delete the token from TinyDB
+      if (typeof window.AppInventor !== "undefined") {
+        try {
+          window.AppInventor.setWebViewString("logout");
+        } catch (err) {
+          console.warn("Failed to clear AppInventor WebViewString:", err);
+        }
+      }
     }
     try {
       localStorage.removeItem(key);
