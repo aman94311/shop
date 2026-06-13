@@ -26,7 +26,8 @@ const setCookie = (name, value, days = 365) => {
     const d = new Date();
     d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
     const expires = "expires=" + d.toUTCString();
-    document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; Secure`;
+    // Do not use SameSite or Secure for webview first-party cookies to prevent injection/deletion issues in WebViews
+    document.cookie = `${name}=${value}; ${expires}; path=/`;
   } catch (e) {
     console.warn("Failed to write cookie:", e);
   }
@@ -35,7 +36,7 @@ const setCookie = (name, value, days = 365) => {
 // Helper to erase cookies on the frontend
 const eraseCookie = (name) => {
   try {
-    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;`;
   } catch (e) {
     console.warn("Failed to erase cookie:", e);
   }
@@ -120,6 +121,8 @@ const apiFetch = async (endpoint, options = {}) => {
 
 // ── Auth ──────────────────────────────────────────────────
 export const loginAdmin = async (username, password) => {
+  // Clear any existing session before performing new login
+  safeStorage.removeItem("token");
   const res = await apiFetch("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
@@ -131,6 +134,8 @@ export const loginAdmin = async (username, password) => {
 };
 
 export const registerUser = async (username, email, password) => {
+  // Clear any existing session before performing new registration
+  safeStorage.removeItem("token");
   const res = await apiFetch("/api/auth/register", {
     method: "POST",
     body: JSON.stringify({ username, email, password }),

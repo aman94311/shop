@@ -290,28 +290,54 @@ router.post("/login", async (req, res) => {
 
 // ----------------------------------------------------------------
 // POST /api/auth/logout
-// Clears the HttpOnly session cookie
+// Clears the HttpOnly session cookie and invalidates DB session
 // ----------------------------------------------------------------
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
+  try {
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
+    if (!token) {
+      token = req.cookies.token;
+    }
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        // Set currentSessionId to null to invalidate this session in MongoDB
+        await User.findByIdAndUpdate(decoded.id, { currentSessionId: null });
+        console.log(`🔴 Session invalidated in DB for user: ${decoded.username}`);
+      } catch (err) {
+        console.warn("Token decode failed during logout:", err.message);
+      }
+    }
+  } catch (error) {
+    console.error("Logout DB update error:", error.message);
+  }
+
   res.clearCookie("token", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    path: "/",
   });
   return res.json({ success: true, message: "Logged out successfully" });
 });
 
 // ----------------------------------------------------------------
 // GET /api/auth/me
-// Reads the HttpOnly cookie and returns authentication status
+// Reads the HttpOnly cookie or Auth header and returns authentication status
 // ----------------------------------------------------------------
 router.get("/me", async (req, res) => {
-  let token = req.cookies.token;
-
-  // Fallback: check Authorization header if cookies are disabled/blocked in WebView
+  let token = null;
   const authHeader = req.headers.authorization;
-  if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+  if (authHeader && authHeader.startsWith("Bearer ")) {
     token = authHeader.split(" ")[1];
+  }
+  if (!token) {
+    token = req.cookies.token;
   }
 
   if (!token) {
@@ -328,6 +354,7 @@ router.get("/me", async (req, res) => {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
       });
       return res.status(401).json({ success: false, isAuthenticated: false, message: "Session invalidated by another login" });
     }
@@ -339,6 +366,7 @@ router.get("/me", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
     });
     return res.status(401).json({ success: false, isAuthenticated: false, message: "Session expired or invalid" });
   }

@@ -7,12 +7,13 @@ const jwt = require("jsonwebtoken");
 
 const verifyAdmin = async (req, res, next) => {
   try {
-    let token = req.cookies.token;
-
-    // Fallback: check Authorization header if cookies are disabled/blocked in WebView
+    let token = null;
     const authHeader = req.headers.authorization;
-    if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+    if (authHeader && authHeader.startsWith("Bearer ")) {
       token = authHeader.split(" ")[1];
+    }
+    if (!token) {
+      token = req.cookies.token;
     }
 
     if (!token) {
@@ -41,7 +42,8 @@ const verifyAdmin = async (req, res, next) => {
       res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+        path: "/",
       });
       return res.status(401).json({
         success: false,
