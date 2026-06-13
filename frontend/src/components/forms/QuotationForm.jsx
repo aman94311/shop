@@ -222,10 +222,25 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
       ? `intent://send/?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}#Intent;scheme=whatsapp;package=com.whatsapp;end`
       : `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
 
-    // If running inside MIT App Inventor WebView, pass the URL to the App Inventor wrapper
+    // If running inside MIT App Inventor WebView, pass the standard HTTPS URL to the App Inventor wrapper.
+    // (ActivityStarter does not support intent:// schemes, it expects standard web URLs).
     if (typeof window.AppInventor !== "undefined") {
       try {
-        window.AppInventor.setWebViewString(targetUrl);
+        const webUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+        window.AppInventor.setWebViewString(webUrl);
+        setSubmitted(true);
+        setSubmitting(false);
+        
+        // Reset form after delay
+        setTimeout(() => {
+          setSubmitted(false);
+          setFormData({ customerName: "", mobileNumber: "", siteAddress: "" });
+          setMaterialList("");
+          setErrors({});
+          removeImage();
+        }, 4000);
+        
+        return; // Halt redirect inside the WebView to prevent WebView ERR_UNKNOWN_URL_SCHEME crash
       } catch (e) {
         console.warn("AppInventor.setWebViewString failed:", e);
       }
