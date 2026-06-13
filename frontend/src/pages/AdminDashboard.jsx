@@ -12,6 +12,13 @@ import BannerControl from "../components/admin/BannerControl";
 const CATEGORY_LABELS = { paints: "🎨 Paints", sanitary: "🚰 Sanitary", hardware: "🔨 Hardware" };
 const CATEGORY_COLORS = { paints: "paints", sanitary: "sanitary", hardware: "hardware" };
 
+const parsePriceNum = (priceStr) => {
+  if (!priceStr) return 0;
+  const cleaned = priceStr.replace(/[^\d.]/g, "");
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+};
+
 const AdminDashboard = () => {
   const { adminUser, logout } = useAuth();
 
@@ -223,53 +230,75 @@ const AdminDashboard = () => {
                 <th>#</th>
                 <th>Product Name</th>
                 <th>Category</th>
-                <th>Price</th>
+                <th>Selling Price</th>
+                <th>Buying Price</th>
                 <th>Unit</th>
                 <th>Tag</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((p, i) => (
-                <tr key={p._id} className="admin-table-row">
-                  <td className="admin-table-idx">{i + 1}</td>
-                  <td className="admin-table-name">
-                    <div>{p.name}</div>
-                    {p.description && <small className="admin-table-desc">{p.description}</small>}
-                  </td>
-                  <td>
-                    <span className={`admin-cat-badge admin-cat-badge--${CATEGORY_COLORS[p.category]}`}>
-                      {CATEGORY_LABELS[p.category]}
-                    </span>
-                  </td>
-                  <td className={`admin-table-price admin-table-price--${p.category}`}>{p.price}</td>
-                  <td className="admin-table-unit">{p.unit}</td>
-                  <td>
-                    {p.tag ? (
-                      <span className={`admin-tag admin-tag--${p.category}`}>{p.tag}</span>
-                    ) : (
-                      <span className="admin-table-none">—</span>
-                    )}
-                  </td>
-                  <td className="admin-table-actions">
-                    <button
-                      className="admin-action-btn admin-action-btn--edit"
-                      title="Edit product"
-                      onClick={() => setModal({ open: true, mode: "edit", product: p })}
-                    >
-                      ✏️ Edit
-                    </button>
-                    <button
-                      className="admin-action-btn admin-action-btn--delete"
-                      title="Delete product"
-                      disabled={deleting === p._id}
-                      onClick={() => handleDelete(p)}
-                    >
-                      {deleting === p._id ? <span className="spinner spinner--sm" /> : "🗑️ Delete"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {visible.map((p, i) => {
+                const sPrice = parsePriceNum(p.price);
+                const bPrice = parsePriceNum(p.buyingPrice);
+                const profit = sPrice && bPrice && sPrice > bPrice ? sPrice - bPrice : 0;
+                const margin = sPrice && profit ? (profit / sPrice) * 100 : 0;
+
+                return (
+                  <tr key={p._id} className="admin-table-row">
+                    <td className="admin-table-idx">{i + 1}</td>
+                    <td className="admin-table-name">
+                      <div>{p.name}</div>
+                      {p.description && <small className="admin-table-desc">{p.description}</small>}
+                    </td>
+                    <td>
+                      <span className={`admin-cat-badge admin-cat-badge--${CATEGORY_COLORS[p.category]}`}>
+                        {CATEGORY_LABELS[p.category]}
+                      </span>
+                    </td>
+                    <td className={`admin-table-price admin-table-price--${p.category}`}>{p.price}</td>
+                    <td>
+                      {p.buyingPrice ? (
+                        <div>
+                          <span className="admin-buying-price-badge">{p.buyingPrice}</span>
+                          {profit > 0 && (
+                            <span className="admin-profit-text" title="Profit margin percentage based on selling price">
+                              Profit: ₹{Math.round(profit).toLocaleString("en-IN")} ({Math.round(margin)}%)
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="admin-table-none">—</span>
+                      )}
+                    </td>
+                    <td className="admin-table-unit">{p.unit}</td>
+                    <td>
+                      {p.tag ? (
+                        <span className={`admin-tag admin-tag--${p.category}`}>{p.tag}</span>
+                      ) : (
+                        <span className="admin-table-none">—</span>
+                      )}
+                    </td>
+                    <td className="admin-table-actions">
+                      <button
+                        className="admin-action-btn admin-action-btn--edit"
+                        title="Edit product"
+                        onClick={() => setModal({ open: true, mode: "edit", product: p })}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        className="admin-action-btn admin-action-btn--delete"
+                        title="Delete product"
+                        disabled={deleting === p._id}
+                        onClick={() => handleDelete(p)}
+                      >
+                        {deleting === p._id ? <span className="spinner spinner--sm" /> : "🗑️ Delete"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

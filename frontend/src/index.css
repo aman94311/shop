@@ -2766,3 +2766,26 @@ body {
   min-width: 24px;
   text-align: center;
 }
+
+/* Admin Buying Price & Profit Margin Styling */
+.admin-buying-price-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: 'Inter', monospace;
+}
+
+.admin-profit-text {
+  display: block;
+  font-size: 0.72rem;
+  color: #10b981; /* Emerald green for profit */
+  font-weight: 700;
+  margin-top: 0.35rem;
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.2px;
+}

@@ -42,6 +42,11 @@ const ProductSchema = new mongoose.Schema(
       trim: true,
       default: null,
     },
+    buyingPrice: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     isActive: {
       type: Boolean,
       default: true,

@@ -31,7 +31,10 @@ router.get("/", verifyUser, async (req, res) => {
       filter.category = req.query.category;
     }
 
-    const products = await Product.find(filter)
+    // Only allow admin to query the buying price
+    const projection = req.user && req.user.role === "admin" ? {} : { buyingPrice: 0 };
+
+    const products = await Product.find(filter, projection)
       .sort({ category: 1, createdAt: 1 })
       .lean();
 
@@ -52,7 +55,7 @@ router.post("/", verifyAdmin, async (req, res) => {
       return res.status(503).json({ success: false, message: "Database unavailable" });
     }
 
-    const { name, category, price, unit, description, tag } = req.body;
+    const { name, category, price, unit, description, tag, buyingPrice } = req.body;
 
     if (!name || !category || !price || !unit) {
       return res.status(400).json({
@@ -68,6 +71,7 @@ router.post("/", verifyAdmin, async (req, res) => {
       unit: unit.trim(),
       description: description ? description.trim() : "",
       tag: tag ? tag.trim() : null,
+      buyingPrice: buyingPrice ? buyingPrice.trim() : "",
     });
 
     console.log(`✅  Product created [${product._id}]: ${product.name}`);
@@ -97,7 +101,7 @@ router.put("/:id", verifyAdmin, async (req, res) => {
       return res.status(503).json({ success: false, message: "Database unavailable" });
     }
 
-    const allowedFields = ["name", "category", "price", "unit", "description", "tag", "isActive"];
+    const allowedFields = ["name", "category", "price", "unit", "description", "tag", "isActive", "buyingPrice"];
     const updateData = {};
 
     allowedFields.forEach((field) => {

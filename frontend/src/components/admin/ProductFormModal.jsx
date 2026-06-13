@@ -7,7 +7,7 @@
 import React, { useState, useEffect } from "react";
 import { createProduct, updateProduct } from "../../services/api";
 
-const EMPTY = { name: "", category: "paints", price: "", unit: "", description: "", tag: "" };
+const EMPTY = { name: "", category: "paints", price: "", unit: "", description: "", tag: "", buyingPrice: "" };
 
 const CATEGORY_OPTIONS = [
   { value: "paints",   label: "🎨 Asian Paints" },
@@ -32,6 +32,7 @@ const ProductFormModal = ({ mode, product, onClose, onSaved }) => {
         unit:        product.unit        || "",
         description: product.description || "",
         tag:         product.tag         || "",
+        buyingPrice: product.buyingPrice || "",
       });
     } else {
       setForm(EMPTY);
@@ -68,6 +69,7 @@ const ProductFormModal = ({ mode, product, onClose, onSaved }) => {
       unit:        form.unit.trim(),
       description: form.description.trim(),
       tag:         form.tag.trim() || null,
+      buyingPrice: form.buyingPrice.trim(),
     };
 
     try {
@@ -135,10 +137,10 @@ const ProductFormModal = ({ mode, product, onClose, onSaved }) => {
             {errors.name && <span className="admin-field-error">{errors.name}</span>}
           </div>
 
-          {/* Price + Unit row */}
+          {/* Selling Price + Buying Price row */}
           <div className="modal-row">
             <div className="admin-form-group">
-              <label className="admin-label" htmlFor="pf-price">Price *</label>
+              <label className="admin-label" htmlFor="pf-price">Selling Price *</label>
               <input
                 id="pf-price"
                 type="text"
@@ -151,17 +153,30 @@ const ProductFormModal = ({ mode, product, onClose, onSaved }) => {
             </div>
 
             <div className="admin-form-group">
-              <label className="admin-label" htmlFor="pf-unit">Unit *</label>
+              <label className="admin-label" htmlFor="pf-buying-price">Buying Price (Admin Only)</label>
               <input
-                id="pf-unit"
+                id="pf-buying-price"
                 type="text"
-                className={`admin-input ${errors.unit ? "admin-input--error" : ""}`}
-                placeholder="e.g. 20L Bucket"
-                value={form.unit}
-                onChange={(e) => handleChange("unit", e.target.value)}
+                className="admin-input"
+                placeholder="e.g. ₹2,000"
+                value={form.buyingPrice}
+                onChange={(e) => handleChange("buyingPrice", e.target.value)}
               />
-              {errors.unit && <span className="admin-field-error">{errors.unit}</span>}
             </div>
+          </div>
+
+          {/* Unit */}
+          <div className="admin-form-group">
+            <label className="admin-label" htmlFor="pf-unit">Unit *</label>
+            <input
+              id="pf-unit"
+              type="text"
+              className={`admin-input ${errors.unit ? "admin-input--error" : ""}`}
+              placeholder="e.g. 20L Bucket, Per Piece, 6 Meter Length"
+              value={form.unit}
+              onChange={(e) => handleChange("unit", e.target.value)}
+            />
+            {errors.unit && <span className="admin-field-error">{errors.unit}</span>}
           </div>
 
           {/* Description */}
