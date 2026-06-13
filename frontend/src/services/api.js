@@ -5,17 +5,24 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+// In-memory token fallback cache in case DOM Storage is disabled in WebView
+let cachedToken = null;
+
 // Fail-safe wrapper to prevent crashes in WebViews where localStorage might be blocked/disabled
 const safeStorage = {
   getItem: (key) => {
+    if (key === "token" && cachedToken) return cachedToken;
     try {
-      return localStorage.getItem(key);
+      const val = localStorage.getItem(key);
+      if (key === "token" && val) cachedToken = val; // Keep memory cache synced
+      return val;
     } catch (e) {
       console.warn("localStorage.getItem blocked:", e);
-      return null;
+      return key === "token" ? cachedToken : null;
     }
   },
   setItem: (key, value) => {
+    if (key === "token") cachedToken = value;
     try {
       localStorage.setItem(key, value);
     } catch (e) {
@@ -23,6 +30,7 @@ const safeStorage = {
     }
   },
   removeItem: (key) => {
+    if (key === "token") cachedToken = null;
     try {
       localStorage.removeItem(key);
     } catch (e) {

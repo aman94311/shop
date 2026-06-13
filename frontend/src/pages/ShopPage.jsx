@@ -50,12 +50,22 @@ function ShopPage() {
 
   // ── Record Visit (Once per session for regular users) ──────
   useEffect(() => {
-    const hasVisited = sessionStorage.getItem("visit_recorded");
+    let hasVisited = false;
+    try {
+      hasVisited = sessionStorage.getItem("visit_recorded");
+    } catch (e) {
+      console.warn("sessionStorage access blocked:", e);
+    }
+
     if (!hasVisited && isAuthenticated && userRole !== "admin") {
       recordPageVisit()
         .then((res) => {
           if (res.success) {
-            sessionStorage.setItem("visit_recorded", "true");
+            try {
+              sessionStorage.setItem("visit_recorded", "true");
+            } catch (e) {
+              console.warn("sessionStorage set blocked:", e);
+            }
           }
         })
         .catch((err) => console.error("Error recording visit:", err));
