@@ -100,6 +100,7 @@ router.post("/register", async (req, res) => {
       message: "Registration successful",
       username: newUser.username,
       role: newUser.role,
+      token,
     });
   } catch (error) {
     console.error("❌  Registration error:", error.message);
@@ -279,6 +280,7 @@ router.post("/login", async (req, res) => {
       message: "Login successful",
       username: user.username,
       role: user.role,
+      token,
     });
   } catch (error) {
     console.error("❌  Login error:", error.message);
@@ -304,7 +306,13 @@ router.post("/logout", (req, res) => {
 // Reads the HttpOnly cookie and returns authentication status
 // ----------------------------------------------------------------
 router.get("/me", async (req, res) => {
-  const token = req.cookies.token;
+  let token = req.cookies.token;
+
+  // Fallback: check Authorization header if cookies are disabled/blocked in WebView
+  const authHeader = req.headers.authorization;
+  if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  }
 
   if (!token) {
     return res.status(401).json({ success: false, isAuthenticated: false, message: "Not logged in" });

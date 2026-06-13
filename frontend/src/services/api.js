@@ -8,13 +8,21 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const apiFetch = async (endpoint, options = {}) => {
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
   
+  // Retrieve token from localStorage
+  const token = localStorage.getItem("token");
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const finalOptions = {
     ...options,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   };
 
   if (options.body instanceof FormData) {
@@ -27,17 +35,25 @@ const apiFetch = async (endpoint, options = {}) => {
 
 // ── Auth ──────────────────────────────────────────────────
 export const loginAdmin = async (username, password) => {
-  return apiFetch("/api/auth/login", {
+  const res = await apiFetch("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
+  if (res.success && res.token) {
+    localStorage.setItem("token", res.token);
+  }
+  return res;
 };
 
 export const registerUser = async (username, email, password) => {
-  return apiFetch("/api/auth/register", {
+  const res = await apiFetch("/api/auth/register", {
     method: "POST",
     body: JSON.stringify({ username, email, password }),
   });
+  if (res.success && res.token) {
+    localStorage.setItem("token", res.token);
+  }
+  return res;
 };
 
 export const forgotPassword = async (email) => {
@@ -55,6 +71,7 @@ export const resetPassword = async (email, otp, newPassword) => {
 };
 
 export const logoutAdmin = async () => {
+  localStorage.removeItem("token");
   return apiFetch("/api/auth/logout", {
     method: "POST",
   });

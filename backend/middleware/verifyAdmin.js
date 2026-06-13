@@ -7,8 +7,13 @@ const jwt = require("jsonwebtoken");
 
 const verifyAdmin = async (req, res, next) => {
   try {
-    // Extract token from HTTP-only cookie
-    const token = req.cookies.token;
+    let token = req.cookies.token;
+
+    // Fallback: check Authorization header if cookies are disabled/blocked in WebView
+    const authHeader = req.headers.authorization;
+    if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.split(" ")[1];
+    }
 
     if (!token) {
       return res.status(401).json({
