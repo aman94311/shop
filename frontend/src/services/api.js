@@ -26,8 +26,7 @@ const setCookie = (name, value, days = 365) => {
     const d = new Date();
     d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
     const expires = "expires=" + d.toUTCString();
-    // Do not use SameSite or Secure for webview first-party cookies to prevent injection/deletion issues in WebViews
-    document.cookie = `${name}=${value}; ${expires}; path=/`;
+    document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; Secure`;
   } catch (e) {
     console.warn("Failed to write cookie:", e);
   }
@@ -36,7 +35,7 @@ const setCookie = (name, value, days = 365) => {
 // Helper to erase cookies on the frontend
 const eraseCookie = (name) => {
   try {
-    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT;`;
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
   } catch (e) {
     console.warn("Failed to erase cookie:", e);
   }
