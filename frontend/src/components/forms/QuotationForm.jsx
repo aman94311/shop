@@ -86,6 +86,7 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
   const [uploadedUrl, setUploadedUrl]     = useState(null);
   const [dragOver, setDragOver]           = useState(false);
   const fileInputRef = useRef();
+  const linkRef = useRef(null);
 
   // ── Validation ─────────────────────────────────────────
   const validate = () => {
@@ -208,17 +209,43 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
       imageUrl:      finalImageUrl,
     });
 
-    const targetUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    // Use the direct api.whatsapp.com/send URL to avoid intermediate 302 redirects
+    // which cause Android WebViews to crash when resolving custom protocols.
+    const targetUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
     
-    try {
-      const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        // Fallback for pop-up blockers or strict WebViews
-        window.location.href = targetUrl;
+    let redirectSuccess = false;
+
+    // Attempt 1: Programmatic click on hidden anchor tag with target="_blank"
+    // This is the safest way in WebViews to trigger external app intent or open system browser
+    if (linkRef.current) {
+      try {
+        linkRef.current.href = targetUrl;
+        linkRef.current.click();
+        redirectSuccess = true;
+      } catch (e) {
+        console.warn("Hidden link click failed:", e);
       }
-    } catch (err) {
-      console.warn("window.open failed, redirecting via window.location.href:", err);
-      window.location.href = targetUrl;
+    }
+
+    // Attempt 2: Fallback to window.open if anchor click failed
+    if (!redirectSuccess) {
+      try {
+        const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
+        if (opened) {
+          redirectSuccess = true;
+        }
+      } catch (e) {
+        console.warn("window.open failed:", e);
+      }
+    }
+
+    // Attempt 3: Final fallback to window.location.href
+    if (!redirectSuccess) {
+      try {
+        window.location.href = targetUrl;
+      } catch (e) {
+        console.error("All redirection methods failed:", e);
+      }
     }
 
     setSubmitted(true);
@@ -313,8 +340,8 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
             />
             {errors.materialList && <span className="form-error">{errors.materialList}</span>}
             <div className="textarea-footer">
-              <span className="char-count">{materialList.length} characters</span>
-              {materialList && <button type="button" className="clear-btn" onClick={() => setMaterialList("")}>🗑 Clear List</button>}
+              <span className="char-count">{(materialList || "").length} characters</span>
+              {(materialList || "") && <button type="button" className="clear-btn" onClick={() => setMaterialList("")}>🗑 Clear List</button>}
             </div>
           </div>
 
@@ -421,6 +448,14 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
             By submitting, you'll be redirected to WhatsApp with your quotation pre-filled.
             {imageFile && " Your photo will be securely uploaded to cloud storage."}
           </p>
+          {/* Hidden anchor tag for WebView compatibility */}
+          <a
+            ref={linkRef}
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "none" }}
+          />
         </form>
       </div>
     </section>
