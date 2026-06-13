@@ -211,7 +211,10 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
 
     // Detect if running inside a mobile WebView (the wrapper app) versus a regular web browser
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-    const isAndroidWebView = /wv|WebView/i.test(userAgent) || (/Android/i.test(userAgent) && /Version\/[0-9.]+/i.test(userAgent));
+    const isAndroidWebView = 
+      (typeof window.AppInventor !== "undefined") || // 100% accurate MIT App Inventor WebView check
+      /wv|WebView/i.test(userAgent) || 
+      (/Android/i.test(userAgent) && /Version\/[0-9.]+/i.test(userAgent));
 
     // Construct the WhatsApp URL. For Android WebViews, use intent:// to bypass browser sandboxing 
     // and launch WhatsApp directly. For regular web browsers, use the standard HTTPS API.
