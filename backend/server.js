@@ -38,8 +38,8 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, or postman)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin or literal 'null' origin (like mobile apps, curl, or postman)
+    if (!origin || origin === "null") return callback(null, true);
 
     const normalizedOrigin = origin.replace(/\/$/, "");
     const isAllowed = allowedOrigins.some(allowed => {

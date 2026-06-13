@@ -5,11 +5,37 @@
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+// Fail-safe wrapper to prevent crashes in WebViews where localStorage might be blocked/disabled
+const safeStorage = {
+  getItem: (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      console.warn("localStorage.getItem blocked:", e);
+      return null;
+    }
+  },
+  setItem: (key, value) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.warn("localStorage.setItem blocked:", e);
+    }
+  },
+  removeItem: (key) => {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {
+      console.warn("localStorage.removeItem blocked:", e);
+    }
+  }
+};
+
 const apiFetch = async (endpoint, options = {}) => {
   const url = endpoint.startsWith("http") ? endpoint : `${BASE_URL}${endpoint}`;
   
-  // Retrieve token from localStorage
-  const token = localStorage.getItem("token");
+  // Retrieve token safely from localStorage fallback
+  const token = safeStorage.getItem("token");
   const headers = {
     "Content-Type": "application/json",
     ...options.headers,
@@ -40,7 +66,7 @@ export const loginAdmin = async (username, password) => {
     body: JSON.stringify({ username, password }),
   });
   if (res.success && res.token) {
-    localStorage.setItem("token", res.token);
+    safeStorage.setItem("token", res.token);
   }
   return res;
 };
@@ -51,7 +77,7 @@ export const registerUser = async (username, email, password) => {
     body: JSON.stringify({ username, email, password }),
   });
   if (res.success && res.token) {
-    localStorage.setItem("token", res.token);
+    safeStorage.setItem("token", res.token);
   }
   return res;
 };
@@ -71,7 +97,7 @@ export const resetPassword = async (email, otp, newPassword) => {
 };
 
 export const logoutAdmin = async () => {
-  localStorage.removeItem("token");
+  safeStorage.removeItem("token");
   return apiFetch("/api/auth/logout", {
     method: "POST",
   });
