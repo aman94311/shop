@@ -82,7 +82,7 @@ router.post("/register", async (req, res) => {
     const token = jwt.sign(
       { id: newUser._id, username: newUser.username, role: newUser.role, sessionId },
       process.env.JWT_SECRET,
-      { expiresIn: "12h" }
+      { expiresIn: "365d" }
     );
 
     // Set cookie
@@ -90,7 +90,7 @@ router.post("/register", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 365 days
     });
 
     console.log(`👤  New user registered: ${newUser.username} (${newUser.email})`);
@@ -262,7 +262,7 @@ router.post("/login", async (req, res) => {
     const token = jwt.sign(
       { id: user._id, username: user.username, role: user.role, sessionId },
       process.env.JWT_SECRET,
-      { expiresIn: "12h" }
+      { expiresIn: "365d" }
     );
 
     // Set JWT token in an HttpOnly cookie
@@ -270,7 +270,7 @@ router.post("/login", async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: 12 * 60 * 60 * 1000, // 12 hours
+      maxAge: 365 * 24 * 60 * 60 * 1000, // 365 days
     });
 
     console.log(`🔐  User login successful: ${user.username} [Role: ${user.role}]`);

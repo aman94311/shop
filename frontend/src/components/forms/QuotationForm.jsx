@@ -90,11 +90,16 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
   // ── Validation ─────────────────────────────────────────
   const validate = () => {
     const e = {};
-    if (!formData.customerName.trim()) e.customerName = "नाम / Name is required";
-    if (!formData.mobileNumber.trim()) e.mobileNumber = "Mobile number is required";
-    else if (!/^[6-9]\d{9}$/.test(formData.mobileNumber.trim())) e.mobileNumber = "Enter a valid 10-digit Indian mobile number";
-    if (!formData.siteAddress.trim()) e.siteAddress = "Site address is required";
-    if (!materialList.trim()) e.materialList = "Please add at least one item or type your requirements";
+    const safeName = (formData.customerName || "").trim();
+    const safeMobile = (formData.mobileNumber || "").trim();
+    const safeAddress = (formData.siteAddress || "").trim();
+    const safeList = (materialList || "").trim();
+
+    if (!safeName) e.customerName = "नाम / Name is required";
+    if (!safeMobile) e.mobileNumber = "Mobile number is required";
+    else if (!/^[6-9]\d{9}$/.test(safeMobile)) e.mobileNumber = "Enter a valid 10-digit Indian mobile number";
+    if (!safeAddress) e.siteAddress = "Site address is required";
+    if (!safeList) e.materialList = "Please add at least one item or type your requirements";
     return e;
   };
 
@@ -177,13 +182,18 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
       finalImageUrl = uploadedUrl;
     }
 
+    const nameVal = (formData.customerName || "").trim();
+    const mobileVal = (formData.mobileNumber || "").trim();
+    const addressVal = (formData.siteAddress || "").trim();
+    const listVal = (materialList || "").trim();
+
     // Step 2: Log inquiry to backend (fire and forget)
     try {
       await logInquiry({
-        customerName:  formData.customerName.trim(),
-        mobileNumber:  formData.mobileNumber.trim(),
-        siteAddress:   formData.siteAddress.trim(),
-        materialList:  materialList.trim(),
+        customerName:  nameVal,
+        mobileNumber:  mobileVal,
+        siteAddress:   addressVal,
+        materialList:  listVal,
       });
     } catch {
       console.warn("Backend log failed — continuing to WhatsApp.");
@@ -191,14 +201,25 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
 
     // Step 3: Build + encode WhatsApp message
     const message = buildWhatsAppMessage({
-      customerName:  formData.customerName.trim(),
-      mobileNumber:  formData.mobileNumber.trim(),
-      siteAddress:   formData.siteAddress.trim(),
-      materialList:  materialList.trim(),
+      customerName:  nameVal,
+      mobileNumber:  mobileVal,
+      siteAddress:   addressVal,
+      materialList:  listVal,
       imageUrl:      finalImageUrl,
     });
 
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    const targetUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    
+    try {
+      const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
+      if (!opened) {
+        // Fallback for pop-up blockers or strict WebViews
+        window.location.href = targetUrl;
+      }
+    } catch (err) {
+      console.warn("window.open failed, redirecting via window.location.href:", err);
+      window.location.href = targetUrl;
+    }
 
     setSubmitted(true);
     setSubmitting(false);

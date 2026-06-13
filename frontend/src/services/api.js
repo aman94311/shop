@@ -8,21 +8,68 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 // In-memory token fallback cache in case DOM Storage is disabled in WebView
 let cachedToken = null;
 
+// Helper to read cookies on the frontend
+const getCookie = (name) => {
+  try {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+  } catch (e) {
+    console.warn("Failed to read cookie:", e);
+  }
+  return null;
+};
+
+// Helper to write cookies on the frontend
+const setCookie = (name, value, days = 365) => {
+  try {
+    const d = new Date();
+    d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+    const expires = "expires=" + d.toUTCString();
+    document.cookie = `${name}=${value}; ${expires}; path=/; SameSite=Lax; Secure`;
+  } catch (e) {
+    console.warn("Failed to write cookie:", e);
+  }
+};
+
+// Helper to erase cookies on the frontend
+const eraseCookie = (name) => {
+  try {
+    document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+  } catch (e) {
+    console.warn("Failed to erase cookie:", e);
+  }
+};
+
 // Fail-safe wrapper to prevent crashes in WebViews where localStorage might be blocked/disabled
 const safeStorage = {
   getItem: (key) => {
     if (key === "token" && cachedToken) return cachedToken;
     try {
-      const val = localStorage.getItem(key);
+      let val = localStorage.getItem(key);
+      if (!val && key === "token") {
+        // Fallback to first-party cookie for WebViews
+        val = getCookie("webview_token");
+      }
       if (key === "token" && val) cachedToken = val; // Keep memory cache synced
       return val;
     } catch (e) {
       console.warn("localStorage.getItem blocked:", e);
-      return key === "token" ? cachedToken : null;
+      // Fallback to cookie if localStorage is blocked
+      if (key === "token") {
+        const val = getCookie("webview_token");
+        if (val) cachedToken = val;
+        return val || cachedToken;
+      }
+      return null;
     }
   },
   setItem: (key, value) => {
-    if (key === "token") cachedToken = value;
+    if (key === "token") {
+      cachedToken = value;
+      // Save in first-party cookie as backup for WebViews
+      setCookie("webview_token", value, 365);
+    }
     try {
       localStorage.setItem(key, value);
     } catch (e) {
@@ -30,7 +77,11 @@ const safeStorage = {
     }
   },
   removeItem: (key) => {
-    if (key === "token") cachedToken = null;
+    if (key === "token") {
+      cachedToken = null;
+      // Erase from first-party cookie
+      eraseCookie("webview_token");
+    }
     try {
       localStorage.removeItem(key);
     } catch (e) {
