@@ -87,6 +87,7 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
   const [dragOver, setDragOver]           = useState(false);
   const fileInputRef = useRef();
   const linkRef = useRef(null);
+  const [failsafeModal, setFailsafeModal] = useState({ isOpen: false, message: "" });
 
   // ── Validation ─────────────────────────────────────────
   const validate = () => {
@@ -210,20 +211,16 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
     });
 
     // Detect if running inside a mobile WebView (the wrapper app) versus a regular web browser
+    const params = new URLSearchParams(window.location.search);
+    const isAppParam = params.get("app") === "true";
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
     const isAndroidWebView = 
-      (typeof window.AppInventor !== "undefined") || // 100% accurate MIT App Inventor WebView check
       /wv|WebView/i.test(userAgent) || 
       (/Android/i.test(userAgent) && /Version\/[0-9.]+/i.test(userAgent));
 
-    // Construct the WhatsApp URL. For Android WebViews, use intent:// to bypass browser sandboxing 
-    // and launch WhatsApp directly. For regular web browsers, use the standard HTTPS API.
-    const targetUrl = isAndroidWebView
-      ? `intent://send/?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}#Intent;scheme=whatsapp;package=com.whatsapp;end`
-      : `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+    const isAppWrapper = isAppParam || isAndroidWebView;
 
-    // If running inside MIT App Inventor WebView, pass the standard HTTPS URL to the App Inventor wrapper.
-    // (ActivityStarter does not support intent:// schemes, it expects standard web URLs).
+    // 1. If running inside MIT App Inventor WebView and the bridge is active, pass data to App Inventor
     if (typeof window.AppInventor !== "undefined") {
       try {
         const webUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
@@ -245,11 +242,22 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
         console.warn("AppInventor.setWebViewString failed:", e);
       }
     }
-    
+
+    // 2. If inside WebView but bridge is not active, trigger Failsafe Modal
+    if (isAppWrapper) {
+      setFailsafeModal({
+        isOpen: true,
+        message: message,
+      });
+      setSubmitting(false);
+      return; // Stop redirection to prevent ERR_UNKNOWN_URL_SCHEME crash
+    }
+
+    // 3. Normal Web Browser Redirection
+    const targetUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
     let redirectSuccess = false;
 
     // Attempt 1: Programmatic click on hidden anchor tag with target="_blank"
-    // This is the safest way in WebViews to trigger external app intent or open system browser
     if (linkRef.current) {
       try {
         linkRef.current.href = targetUrl;
@@ -491,6 +499,103 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
           />
         </form>
       </div>
+
+      {/* WhatsApp Redirect Failsafe Modal */}
+      {failsafeModal.isOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box failsafe-modal-box">
+            <div className="modal-header">
+              <h3 className="modal-title">📲 Send Quotation (Failsafe Backup)</h3>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setFailsafeModal((prev) => ({ ...prev, isOpen: false }))}
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="failsafe-body">
+              <p className="failsafe-desc">
+                We detected that you are running inside a <strong>Mobile App/WebView</strong> wrapper. 
+                WebViews block automatic redirects to external apps (causing <em>net::ERR_UNKNOWN_URL_SCHEME</em>).
+              </p>
+
+              <div className="failsafe-step-title">📋 Step 1: Copy your quote message</div>
+              <div className="failsafe-textarea-container">
+                <textarea
+                  className="failsafe-textarea"
+                  readOnly
+                  rows={6}
+                  value={failsafeModal.message}
+                  onClick={(e) => { e.target.select(); }}
+                />
+                <button
+                  type="button"
+                  className="failsafe-copy-btn"
+                  onClick={() => {
+                    navigator.clipboard.writeText(failsafeModal.message);
+                    alert("✅ Quote message copied to clipboard! Paste it inside WhatsApp.");
+                  }}
+                >
+                  📋 Copy Message Text
+                </button>
+              </div>
+
+              <div className="failsafe-step-title">💬 Step 2: Open WhatsApp and Paste</div>
+              <p className="failsafe-desc-sub">
+                Try opening WhatsApp directly to paste your copied message. If the button below throws an error, please open this site in <strong>Chrome</strong> or <strong>Safari</strong> instead.
+              </p>
+              
+              <div className="failsafe-actions">
+                <a
+                  href={`whatsapp://send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(failsafeModal.message)}`}
+                  className="failsafe-action-btn failsafe-action-btn--whatsapp"
+                  onClick={() => {
+                    setTimeout(() => {
+                      setFailsafeModal((prev) => ({ ...prev, isOpen: false }));
+                      setFormData({ customerName: "", mobileNumber: "", siteAddress: "" });
+                      setMaterialList("");
+                      removeImage();
+                    }, 1500);
+                  }}
+                >
+                  💬 Open WhatsApp App
+                </a>
+              </div>
+
+              <div className="failsafe-dev-note">
+                <strong>🛠️ For the App Developer (How to fix permanently):</strong>
+                <p>
+                  To make WhatsApp open automatically without this popup, you must:
+                </p>
+                <ol>
+                  <li>In your MIT App Inventor project, select <strong>WebViewer1</strong>.</li>
+                  <li>Set the <strong>HomeUrl</strong> property to EXACTLY: <br />
+                    <code>https://abhisanitary.vercel.app/?app=true</code> (with <em>https://</em>).
+                  </li>
+                  <li>Rebuild the APK, **uninstall** the old app, and install the new APK.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="failsafe-cancel-btn"
+                onClick={() => {
+                  setFailsafeModal((prev) => ({ ...prev, isOpen: false }));
+                  setFormData({ customerName: "", mobileNumber: "", siteAddress: "" });
+                  setMaterialList("");
+                  removeImage();
+                }}
+              >
+                Close &amp; Reset Form
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 });
