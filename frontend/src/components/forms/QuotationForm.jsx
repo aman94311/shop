@@ -209,9 +209,15 @@ const QuotationForm = forwardRef(({ materialList, setMaterialList }, ref) => {
       imageUrl:      finalImageUrl,
     });
 
-    // Use the direct api.whatsapp.com/send URL to avoid intermediate 302 redirects
-    // which cause Android WebViews to crash when resolving custom protocols.
-    const targetUrl = `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
+    // Detect if running inside a mobile WebView (the wrapper app) versus a regular web browser
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    const isAndroidWebView = /wv|WebView/i.test(userAgent) || (/Android/i.test(userAgent) && /Version\/[0-9.]+/i.test(userAgent));
+
+    // Construct the WhatsApp URL. For Android WebViews, use intent:// to bypass browser sandboxing 
+    // and launch WhatsApp directly. For regular web browsers, use the standard HTTPS API.
+    const targetUrl = isAndroidWebView
+      ? `intent://send/?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}#Intent;scheme=whatsapp;package=com.whatsapp;end`
+      : `https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent(message)}`;
     
     let redirectSuccess = false;
 
